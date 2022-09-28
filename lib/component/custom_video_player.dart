@@ -6,9 +6,12 @@ import 'package:video_player/video_player.dart';
 
 class CustomVideoPlayer extends StatefulWidget {
   final XFile video;
+  final VoidCallback onNewVideoPressed;
+
 
   const CustomVideoPlayer({
     required this.video,
+    required this.onNewVideoPressed,
     Key? key,
   }) : super(key: key);
 
@@ -19,6 +22,7 @@ class CustomVideoPlayer extends StatefulWidget {
 class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
   VideoPlayerController? videoPlayerController;
   Duration currentPosition = Duration();
+  bool showControls = false;
 
   @override
   void initState() {
@@ -27,7 +31,19 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
     initializeController();
   }
 
+  // widget이 변경되었을때 한번 다시 불러줘야함
+  @override
+  void didUpdateWidget(covariant CustomVideoPlayer oldWidget){
+    super.didUpdateWidget(oldWidget);
+
+    if(oldWidget.video.path != widget.video.path) {
+      initializeController();
+    }
+  }
+
   initializeController() async {
+    currentPosition = Duration();
+
     videoPlayerController = VideoPlayerController.file(
       File(widget.video.path),
     );
@@ -51,28 +67,37 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
       return CircularProgressIndicator();
     }
 
-    return AspectRatio(
-      aspectRatio: videoPlayerController!.value.aspectRatio, // 동영상 크기 맞추기
-      child: Stack(
-        children: [
-          VideoPlayer(
-            videoPlayerController!,
-          ),
-          _Controls(
-            onReversePressed: onReversePressed,
-            onPlayPressed: onPlayPressed,
-            onForwardPressed: onForwardPressed,
-            isPlaying: videoPlayerController!.value.isPlaying,
-          ),
-          _NewVideo(
-            onPressed: onNewVideoPressed,
-          ),
-          _SliderBottom(
-            currentPosition: currentPosition,
-            maxPosition: videoPlayerController!.value.duration,
-            onSliderChanged: onSliderChanged,
-          )
-        ],
+    return GestureDetector(
+      onTap: (){
+        setState((){
+          showControls = !showControls;
+        });
+      },
+      child: AspectRatio(
+        aspectRatio: videoPlayerController!.value.aspectRatio, // 동영상 크기 맞추기
+        child: Stack(
+          children: [
+            VideoPlayer(
+              videoPlayerController!,
+            ),
+            if (showControls)
+              _Controls(
+                onReversePressed: onReversePressed,
+                onPlayPressed: onPlayPressed,
+                onForwardPressed: onForwardPressed,
+                isPlaying: videoPlayerController!.value.isPlaying,
+              ),
+            if (showControls)
+              _NewVideo(
+                onPressed: widget.onNewVideoPressed,
+              ),
+            _SliderBottom(
+              currentPosition: currentPosition,
+              maxPosition: videoPlayerController!.value.duration,
+              onSliderChanged: onSliderChanged,
+            )
+          ],
+        ),
       ),
     );
   }
@@ -93,7 +118,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
     if (currentPosition.inSeconds > 3) {
       position = currentPosition - Duration(seconds: 3);
     }
-    videoPlayerController!.seekTo(currentPosition - position);
+    videoPlayerController!.seekTo(position);
   }
 
   void onPlayPressed() {
@@ -109,16 +134,16 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
   }
 
   void onForwardPressed() {
-    final maxPostion = videoPlayerController!.value.duration;
+    final maxPosition = videoPlayerController!.value.duration;
     final currentPosition = videoPlayerController!.value.position;
 
-    Duration position = Duration();
+    Duration position = maxPosition;
 
-    if ((maxPostion - Duration(seconds: 3)).inSeconds >
+    if ((maxPosition - Duration(seconds: 3)).inSeconds >
         currentPosition.inSeconds) {
       position = currentPosition + Duration(seconds: 3);
     }
-    videoPlayerController!.seekTo(currentPosition - position);
+    videoPlayerController!.seekTo(position);
   }
 
   void onNewVideoPressed() {}
@@ -142,8 +167,8 @@ class _Controls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black.withOpacity(.5),
+      height: MediaQuery.of(context).size.height, // crossAxis 건들면 위에까지 먹힘
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           renderIconButton(
